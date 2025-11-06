@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { API_URL } from './config';
 
 function Login({ onLoginSuccess }) {
   const [username, setUsername] = useState('');
@@ -18,7 +19,7 @@ function Login({ onLoginSuccess }) {
       formData.append('username', username);
       formData.append('password', password);
 
-      const response = await fetch('https://api.ashtonashton.net/login', {
+      const response = await fetch(`${API_URL}/login`, {
         method: 'POST',
         body: formData,
       });

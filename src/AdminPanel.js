@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { API_URL } from './config';
 
 function AdminPanel() {
   const [users, setUsers] = useState([]);
@@ -20,7 +21,7 @@ function AdminPanel() {
   const loadUsers = async () => {
     try {
       const token = localStorage.getItem("token");
-      const response = await fetch("https://api.ashtonashton.net/admin/users", {
+      const response = await fetch(`${API_URL}/admin/users`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -53,7 +54,7 @@ function AdminPanel() {
       // Load all pages of posts
       while (hasMore) {
         const response = await fetch(
-          `https://api.ashtonashton.net/admin/feed?page=${page}`,
+          `${API_URL}/admin/feed?page=${page}`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -91,7 +92,7 @@ function AdminPanel() {
     try {
       const token = localStorage.getItem("token");
       const response = await fetch(
-        `https://api.ashtonashton.net/admin/users/${userId}/ban`,
+        `${API_URL}/admin/users/${userId}/ban`,
         {
           method: "POST",
           headers: {
@@ -117,7 +118,7 @@ function AdminPanel() {
     try {
       const token = localStorage.getItem("token");
       const response = await fetch(
-        `https://api.ashtonashton.net/admin/users/${userId}/unban`,
+        `${API_URL}/admin/users/${userId}/unban`,
         {
           method: "POST",
           headers: {
@@ -143,7 +144,7 @@ function AdminPanel() {
     try {
       const token = localStorage.getItem("token");
       const response = await fetch(
-        `https://api.ashtonashton.net/admin/posts/${postId}`,
+        `${API_URL}/admin/posts/${postId}`,
         {
           method: "DELETE",
           headers: {

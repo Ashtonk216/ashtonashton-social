@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { API_URL } from './config';
 
 function Feed({ onLogout }) {
   const navigate = useNavigate();
@@ -19,6 +20,18 @@ function Feed({ onLogout }) {
   const fileInputRef = useRef(null);
   const [isAdmin, setIsAdmin] = useState(false);
 
+  // Reply states
+  const [expandedPostId, setExpandedPostId] = useState(null);
+  const [replies, setReplies] = useState({});
+  const [loadingReplies, setLoadingReplies] = useState({});
+  const [replyText, setReplyText] = useState('');
+  const [replyFile, setReplyFile] = useState(null);
+  const [replyCaption, setReplyCaption] = useState('');
+  const [replyType, setReplyType] = useState('text');
+  const [postingReply, setPostingReply] = useState(false);
+  const [replyError, setReplyError] = useState('');
+  const replyFileInputRef = useRef(null);
+
   const username = localStorage.getItem('username');
 
   // Check if user is admin
@@ -26,7 +39,7 @@ function Feed({ onLogout }) {
     const checkAdmin = async () => {
       try {
         const token = localStorage.getItem('token');
-        const response = await fetch('https://api.ashtonashton.net/admin/users', {
+        const response = await fetch(`${API_URL}/admin/users`, {
           headers: {
             Authorization: `Bearer ${token}`,
           },
@@ -51,7 +64,7 @@ function Feed({ onLogout }) {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`https://api.ashtonashton.net/feed?page=${pageNum}`, {
+      const response = await fetch(`${API_URL}/feed?page=${pageNum}`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -122,7 +135,7 @@ function Feed({ onLogout }) {
   const handleDownload = async (postId, filename) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`https://api.ashtonashton.net/posts/${postId}/download`, {
+      const response = await fetch(`${API_URL}/posts/${postId}/download`, {
         headers: {
           Authorization: `Bearer ${token}`,
         },
@@ -173,7 +186,7 @@ function Feed({ onLogout }) {
       const formData = new FormData();
       formData.append('content', textContent);
 
-      const response = await fetch('https://api.ashtonashton.net/posts/text', {
+      const response = await fetch(`${API_URL}/posts/text`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -220,7 +233,7 @@ function Feed({ onLogout }) {
         formData.append('caption', caption);
       }
 
-      const response = await fetch('https://api.ashtonashton.net/posts/file', {
+      const response = await fetch(`${API_URL}/posts/file`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -252,7 +265,7 @@ function Feed({ onLogout }) {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`https://api.ashtonashton.net/posts/${postId}`, {
+      const response = await fetch(`${API_URL}/posts/${postId}`, {
         method: 'DELETE',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -288,7 +301,7 @@ function Feed({ onLogout }) {
 
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`https://api.ashtonashton.net/posts/${postId}/dislike`, {
+      const response = await fetch(`${API_URL}/posts/${postId}/dislike`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,
@@ -315,6 +328,232 @@ function Feed({ onLogout }) {
             : post
         )
       );
+    }
+  };
+
+  // Fetch replies for a post
+  const fetchReplies = async (postId) => {
+    setLoadingReplies(prev => ({ ...prev, [postId]: true }));
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_URL}/posts/${postId}/replies`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to load replies');
+      }
+
+      const data = await response.json();
+      setReplies(prev => ({ ...prev, [postId]: data.replies }));
+    } catch (err) {
+      alert('Failed to load replies: ' + err.message);
+    } finally {
+      setLoadingReplies(prev => ({ ...prev, [postId]: false }));
+    }
+  };
+
+  // Toggle replies view
+  const handleToggleReplies = async (postId) => {
+    if (expandedPostId === postId) {
+      setExpandedPostId(null);
+    } else {
+      setExpandedPostId(postId);
+      if (!replies[postId]) {
+        await fetchReplies(postId);
+      }
+    }
+  };
+
+  // Create text reply
+  const handleCreateTextReply = async (postId) => {
+    if (!replyText.trim()) {
+      setReplyError('Reply cannot be empty');
+      return;
+    }
+
+    if (replyText.length > 1000) {
+      setReplyError('Reply exceeds 1000 character limit');
+      return;
+    }
+
+    setPostingReply(true);
+    setReplyError('');
+
+    try {
+      const token = localStorage.getItem('token');
+      const formData = new FormData();
+      formData.append('content', replyText);
+
+      const response = await fetch(`${API_URL}/posts/${postId}/reply/text`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to create reply');
+      }
+
+      // Clear form and refresh replies
+      setReplyText('');
+      await fetchReplies(postId);
+
+      // Update reply count in posts
+      setPosts(prevPosts =>
+        prevPosts.map(post =>
+          post.id === postId
+            ? { ...post, reply_count: (post.reply_count || 0) + 1 }
+            : post
+        )
+      );
+    } catch (err) {
+      setReplyError(err.message);
+    } finally {
+      setPostingReply(false);
+    }
+  };
+
+  // Create file reply
+  const handleCreateFileReply = async (postId) => {
+    if (!replyFile) {
+      setReplyError('Please select a file');
+      return;
+    }
+
+    if (replyCaption && replyCaption.length > 1000) {
+      setReplyError('Caption exceeds 1000 character limit');
+      return;
+    }
+
+    setPostingReply(true);
+    setReplyError('');
+
+    try {
+      const token = localStorage.getItem('token');
+      const formData = new FormData();
+      formData.append('file', replyFile);
+      if (replyCaption) {
+        formData.append('caption', replyCaption);
+      }
+
+      const response = await fetch(`${API_URL}/posts/${postId}/reply/file`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.detail || 'Failed to create reply');
+      }
+
+      // Clear form and refresh replies
+      setReplyFile(null);
+      setReplyCaption('');
+      if (replyFileInputRef.current) {
+        replyFileInputRef.current.value = '';
+      }
+      await fetchReplies(postId);
+
+      // Update reply count in posts
+      setPosts(prevPosts =>
+        prevPosts.map(post =>
+          post.id === postId
+            ? { ...post, reply_count: (post.reply_count || 0) + 1 }
+            : post
+        )
+      );
+    } catch (err) {
+      setReplyError(err.message);
+    } finally {
+      setPostingReply(false);
+    }
+  };
+
+  // Toggle dislike on reply
+  const handleReplyDislike = async (postId, replyId) => {
+    // Optimistically update UI
+    setReplies(prev => ({
+      ...prev,
+      [postId]: prev[postId].map(reply =>
+        reply.id === replyId
+          ? {
+              ...reply,
+              is_disliked: !reply.is_disliked,
+              dislike_count: reply.dislike_count + (reply.is_disliked ? -1 : 1),
+            }
+          : reply
+      ),
+    }));
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_URL}/posts/${replyId}/dislike`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to toggle dislike');
+      }
+    } catch (err) {
+      // Revert on failure
+      setReplies(prev => ({
+        ...prev,
+        [postId]: prev[postId].map(reply =>
+          reply.id === replyId
+            ? {
+                ...reply,
+                is_disliked: !reply.is_disliked,
+                dislike_count: reply.dislike_count + (reply.is_disliked ? -1 : 1),
+              }
+            : reply
+        ),
+      }));
+      alert('Failed to dislike reply: ' + err.message);
+    }
+  };
+
+  // Delete reply
+  const handleDeleteReply = async (postId, replyId) => {
+    if (!window.confirm('Delete this reply?')) return;
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`${API_URL}/posts/${replyId}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to delete reply');
+      }
+
+      // Refresh replies
+      await fetchReplies(postId);
+
+      // Update reply count in posts
+      setPosts(prevPosts =>
+        prevPosts.map(post =>
+          post.id === postId
+            ? { ...post, reply_count: Math.max(0, (post.reply_count || 0) - 1) }
+            : post
+        )
+      );
+    } catch (err) {
+      alert('Delete failed: ' + err.message);
     }
   };
 
@@ -611,7 +850,7 @@ function Feed({ onLogout }) {
               )}
 
               {/* Action Buttons */}
-              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
                 {/* Dislike Button */}
                 <button
                   onClick={() => handleDislike(post.id)}
@@ -629,6 +868,22 @@ function Feed({ onLogout }) {
                   }}
                 >
                   👎 <span style={{ fontSize: '14px' }}>{post.dislike_count}</span>
+                </button>
+
+                {/* Reply Button */}
+                <button
+                  onClick={() => handleToggleReplies(post.id)}
+                  style={{
+                    padding: '5px 15px',
+                    backgroundColor: expandedPostId === post.id ? '#28a745' : '#6c757d',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '14px'
+                  }}
+                >
+                  💬 {post.reply_count || 0} {post.reply_count === 1 ? 'reply' : 'replies'}
                 </button>
 
                 {/* Download Button - Only show for file posts */}
@@ -667,6 +922,339 @@ function Feed({ onLogout }) {
                   </button>
                 )}
               </div>
+
+              {/* Replies Section */}
+              {expandedPostId === post.id && (
+                <div style={{
+                  marginTop: '20px',
+                  paddingTop: '20px',
+                  borderTop: '1px solid #dee2e6'
+                }}>
+                  {/* Loading State */}
+                  {loadingReplies[post.id] && (
+                    <div style={{ textAlign: 'center', padding: '20px', color: '#6c757d' }}>
+                      Loading replies...
+                    </div>
+                  )}
+
+                  {/* Replies List */}
+                  {!loadingReplies[post.id] && replies[post.id] && (
+                    <div>
+                      {replies[post.id].length === 0 ? (
+                        <div style={{ textAlign: 'center', padding: '20px', color: '#6c757d' }}>
+                          No replies yet. Be the first to reply!
+                        </div>
+                      ) : (
+                        <div style={{ marginBottom: '20px' }}>
+                          {replies[post.id].map((reply) => (
+                            <div
+                              key={reply.id}
+                              style={{
+                                padding: '15px',
+                                backgroundColor: '#f8f9fa',
+                                borderRadius: '8px',
+                                marginBottom: '10px',
+                                marginLeft: '20px'
+                              }}
+                            >
+                              {/* Reply Header */}
+                              <div style={{
+                                fontSize: '12px',
+                                color: '#6c757d',
+                                marginBottom: '8px',
+                                display: 'flex',
+                                justifyContent: 'space-between',
+                                alignItems: 'center'
+                              }}>
+                                <span>{formatDate(reply.created_at)}</span>
+                              </div>
+
+                              {/* Reply Content */}
+                              {reply.post_type === 'text' ? (
+                                <p style={{ whiteSpace: 'pre-wrap', margin: '0 0 10px 0' }}>{reply.content}</p>
+                              ) : (
+                                <div>
+                                  {reply.caption && (
+                                    <p style={{ whiteSpace: 'pre-wrap', marginBottom: '8px' }}>{reply.caption}</p>
+                                  )}
+                                  <div style={{
+                                    padding: '10px',
+                                    backgroundColor: '#fff',
+                                    borderRadius: '4px',
+                                    marginBottom: '10px'
+                                  }}>
+                                    <p style={{ margin: 0, fontSize: '14px' }}>
+                                      <strong>File:</strong> {reply.file.filename}
+                                    </p>
+                                    <p style={{ margin: '5px 0 0 0', fontSize: '12px', color: '#6c757d' }}>
+                                      {formatBytes(reply.file.size)}
+                                    </p>
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Reply Actions */}
+                              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                                <button
+                                  onClick={() => handleReplyDislike(post.id, reply.id)}
+                                  style={{
+                                    padding: '3px 6px',
+                                    backgroundColor: reply.is_disliked ? '#6c757d' : 'transparent',
+                                    color: reply.is_disliked ? 'white' : '#6c757d',
+                                    border: 'none',
+                                    borderRadius: '4px',
+                                    cursor: 'pointer',
+                                    fontSize: '14px',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '4px'
+                                  }}
+                                >
+                                  👎 <span style={{ fontSize: '12px' }}>{reply.dislike_count}</span>
+                                </button>
+
+                                {reply.post_type !== 'text' && reply.file && (
+                                  <button
+                                    onClick={() => handleDownload(reply.id, reply.file.filename)}
+                                    style={{
+                                      padding: '4px 12px',
+                                      backgroundColor: '#007bff',
+                                      color: 'white',
+                                      border: 'none',
+                                      borderRadius: '4px',
+                                      cursor: 'pointer',
+                                      fontSize: '12px'
+                                    }}
+                                  >
+                                    Download
+                                  </button>
+                                )}
+
+                                {reply.is_deletable && (
+                                  <button
+                                    onClick={() => handleDeleteReply(post.id, reply.id)}
+                                    style={{
+                                      padding: '4px 12px',
+                                      backgroundColor: '#dc3545',
+                                      color: 'white',
+                                      border: 'none',
+                                      borderRadius: '4px',
+                                      cursor: 'pointer',
+                                      fontSize: '12px'
+                                    }}
+                                  >
+                                    Delete
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Reply Form */}
+                      <div style={{
+                        padding: '15px',
+                        backgroundColor: '#fff',
+                        border: '1px solid #dee2e6',
+                        borderRadius: '8px',
+                        marginTop: '10px'
+                      }}>
+                        <h4 style={{ margin: '0 0 10px 0', fontSize: '16px' }}>Add a reply</h4>
+
+                        {/* Reply Type Selector */}
+                        <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
+                          <button
+                            onClick={() => setReplyType('text')}
+                            style={{
+                              padding: '8px 16px',
+                              backgroundColor: replyType === 'text' ? '#007bff' : '#e9ecef',
+                              color: replyType === 'text' ? 'white' : '#495057',
+                              border: 'none',
+                              borderRadius: '4px',
+                              cursor: 'pointer',
+                              fontSize: '14px'
+                            }}
+                          >
+                            Text Reply
+                          </button>
+                          <button
+                            onClick={() => setReplyType('file')}
+                            style={{
+                              padding: '8px 16px',
+                              backgroundColor: replyType === 'file' ? '#007bff' : '#e9ecef',
+                              color: replyType === 'file' ? 'white' : '#495057',
+                              border: 'none',
+                              borderRadius: '4px',
+                              cursor: 'pointer',
+                              fontSize: '14px'
+                            }}
+                          >
+                            File Reply
+                          </button>
+                        </div>
+
+                        {/* Text Reply Form */}
+                        {replyType === 'text' && (
+                          <div>
+                            <textarea
+                              value={replyText}
+                              onChange={(e) => setReplyText(e.target.value)}
+                              placeholder="Write your reply..."
+                              style={{
+                                width: '100%',
+                                padding: '10px',
+                                minHeight: '80px',
+                                border: '1px solid #ced4da',
+                                borderRadius: '4px',
+                                marginBottom: '10px',
+                                resize: 'vertical',
+                                boxSizing: 'border-box'
+                              }}
+                            />
+                            <div style={{ fontSize: '12px', color: '#6c757d', marginBottom: '10px' }}>
+                              {replyText.length}/1000 characters
+                            </div>
+                            <button
+                              onClick={() => handleCreateTextReply(post.id)}
+                              disabled={postingReply || !replyText.trim()}
+                              style={{
+                                padding: '8px 16px',
+                                backgroundColor: postingReply || !replyText.trim() ? '#ccc' : '#28a745',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: postingReply || !replyText.trim() ? 'not-allowed' : 'pointer',
+                                fontSize: '14px'
+                              }}
+                            >
+                              {postingReply ? 'Posting...' : 'Post Reply'}
+                            </button>
+                          </div>
+                        )}
+
+                        {/* File Reply Form */}
+                        {replyType === 'file' && (
+                          <div>
+                            {/* Hidden file input */}
+                            <input
+                              type="file"
+                              ref={replyFileInputRef}
+                              onChange={(e) => {
+                                const file = e.target.files[0];
+                                if (file && file.size > 100 * 1024 * 1024) {
+                                  setReplyError('File too large (max 100MB)');
+                                  e.target.value = '';
+                                } else {
+                                  setReplyFile(file);
+                                  setReplyError('');
+                                }
+                              }}
+                              style={{ display: 'none' }}
+                            />
+
+                            {/* Custom file select button */}
+                            <button
+                              type="button"
+                              onClick={() => replyFileInputRef.current?.click()}
+                              style={{
+                                padding: '6px 12px',
+                                backgroundColor: '#007bff',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                fontSize: '14px',
+                                marginBottom: '10px',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px'
+                              }}
+                            >
+                              Choose File
+                            </button>
+
+                            {replyFile && (
+                              <div style={{
+                                padding: '10px',
+                                backgroundColor: '#e9ecef',
+                                borderRadius: '4px',
+                                marginBottom: '10px',
+                                fontSize: '14px'
+                              }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                                  <div>
+                                    <strong>Selected:</strong> {replyFile.name}
+                                    <div style={{ color: '#6c757d', fontSize: '12px', marginTop: '4px' }}>
+                                      Size: {formatBytes(replyFile.size)}
+                                    </div>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setReplyFile(null);
+                                      if (replyFileInputRef.current) {
+                                        replyFileInputRef.current.value = '';
+                                      }
+                                    }}
+                                    style={{
+                                      padding: '4px 8px',
+                                      backgroundColor: '#dc3545',
+                                      color: 'white',
+                                      border: 'none',
+                                      borderRadius: '4px',
+                                      cursor: 'pointer',
+                                      fontSize: '12px'
+                                    }}
+                                  >
+                                    Remove
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                            <textarea
+                              value={replyCaption}
+                              onChange={(e) => setReplyCaption(e.target.value)}
+                              placeholder="Add a caption (optional)..."
+                              style={{
+                                width: '100%',
+                                padding: '10px',
+                                minHeight: '60px',
+                                border: '1px solid #ced4da',
+                                borderRadius: '4px',
+                                marginBottom: '10px',
+                                resize: 'vertical',
+                                boxSizing: 'border-box'
+                              }}
+                            />
+                            <button
+                              onClick={() => handleCreateFileReply(post.id)}
+                              disabled={postingReply || !replyFile}
+                              style={{
+                                padding: '8px 16px',
+                                backgroundColor: postingReply || !replyFile ? '#ccc' : '#28a745',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: postingReply || !replyFile ? 'not-allowed' : 'pointer',
+                                fontSize: '14px'
+                              }}
+                            >
+                              {postingReply ? 'Posting...' : 'Post Reply'}
+                            </button>
+                          </div>
+                        )}
+
+                        {replyError && (
+                          <p style={{ color: '#dc3545', marginTop: '10px', fontSize: '14px' }}>
+                            {replyError}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           ))}
 

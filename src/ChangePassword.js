@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { API_URL } from './config';
 
 function ChangePassword() {
   const [currentPassword, setCurrentPassword] = useState("");
@@ -34,7 +35,7 @@ function ChangePassword() {
       formData.append("new_password", newPassword);
 
       const response = await fetch(
-        "https://api.ashtonashton.net/change-password",
+        `${API_URL}/change-password`,
         {
           method: "POST",
           headers: {
