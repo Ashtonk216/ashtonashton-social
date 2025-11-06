@@ -928,7 +928,7 @@ function Feed({ onLogout }) {
                 <div style={{
                   marginTop: '20px',
                   paddingTop: '20px',
-                  borderTop: '1px solid #dee2e6'
+                  fontFamily: 'inherit',
                 }}>
                   {/* Loading State */}
                   {loadingReplies[post.id] && (
