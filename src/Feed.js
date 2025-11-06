@@ -883,7 +883,7 @@ function Feed({ onLogout }) {
                     fontSize: '14px'
                   }}
                 >
-                  💬 {post.reply_count || 0} {post.reply_count === 1 ? 'reply' : 'replies'}
+                  {post.reply_count || 0} {post.reply_count === 1 ? 'reply' : 'replies'}
                 </button>
 
                 {/* Download Button - Only show for file posts */}
@@ -942,7 +942,7 @@ function Feed({ onLogout }) {
                     <div>
                       {replies[post.id].length === 0 ? (
                         <div style={{ textAlign: 'center', padding: '20px', color: '#6c757d' }}>
-                          No replies yet. Be the first to reply!
+                          No replies yet.
                         </div>
                       ) : (
                         <div style={{ marginBottom: '20px' }}>
