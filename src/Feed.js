@@ -114,8 +114,11 @@ function Feed({ onLogout }) {
     loadPosts(1, false);
   }, []);
 
-  // Auto-refresh feed every 15 seconds (only first page, no interruption)
+  // Auto-refresh feed every 15 seconds (ONLY when on page 1)
   useEffect(() => {
+    // Don't set up auto-refresh if we're beyond page 1
+    if (page > 1) return;
+
     const interval = setInterval(async () => {
       try {
         const token = localStorage.getItem('token');
@@ -127,10 +130,7 @@ function Feed({ onLogout }) {
 
         if (response.ok) {
           const data = await response.json();
-          // Only update if we're on page 1, to avoid disrupting pagination
-          if (page === 1) {
-            setPosts(data.posts);
-          }
+          setPosts(data.posts);
         }
       } catch (err) {
         // Silent fail for auto-refresh
