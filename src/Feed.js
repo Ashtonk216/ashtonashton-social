@@ -9,6 +9,7 @@ function Feed({ onLogout }) {
   const [error, setError] = useState('');
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
 
   // New post states
   const [postType, setPostType] = useState('text'); // 'text' or 'file'
@@ -56,8 +57,13 @@ function Feed({ onLogout }) {
   }, []);
 
   // Load posts
-  const loadPosts = async (pageNum = 1, append = false, silent = false) => {
-    if (!silent) {
+  const loadPosts = async (pageNum = 1, append = false) => {
+    // Prevent loading if already loading
+    if (append && loadingMore) return;
+
+    if (append) {
+      setLoadingMore(true);
+    } else {
       setLoading(true);
     }
     setError('');
@@ -77,19 +83,27 @@ function Feed({ onLogout }) {
       const data = await response.json();
 
       if (append) {
-        setPosts(prev => [...prev, ...data.posts]);
+        // When loading more, append to existing posts
+        setPosts(prev => {
+          // Prevent duplicates by checking IDs
+          const existingIds = new Set(prev.map(p => p.id));
+          const newPosts = data.posts.filter(p => !existingIds.has(p.id));
+          return [...prev, ...newPosts];
+        });
       } else {
+        // Fresh load, replace all posts
         setPosts(data.posts);
+        setPage(1); // Reset page counter
       }
 
       // Check if there are more posts
       setHasMore(data.posts.length === 20);
     } catch (err) {
-      if (!silent) {
-        setError(err.message);
-      }
+      setError(err.message);
     } finally {
-      if (!silent) {
+      if (append) {
+        setLoadingMore(false);
+      } else {
         setLoading(false);
       }
     }
@@ -97,24 +111,42 @@ function Feed({ onLogout }) {
 
   // Initial load
   useEffect(() => {
-    loadPosts(1);
+    loadPosts(1, false);
   }, []);
 
-  // Auto-refresh feed every 15 seconds
+  // Auto-refresh feed every 15 seconds (only first page, no interruption)
   useEffect(() => {
-    const interval = setInterval(() => {
-      // Silently refresh the first page to check for new posts
-      loadPosts(1, false, true);
+    const interval = setInterval(async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`${API_URL}/feed?page=1`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          // Only update if we're on page 1, to avoid disrupting pagination
+          if (page === 1) {
+            setPosts(data.posts);
+          }
+        }
+      } catch (err) {
+        // Silent fail for auto-refresh
+      }
     }, 15000); // 15 seconds
 
     return () => clearInterval(interval);
-  }, []);
+  }, [page]); // Re-create interval when page changes
 
   // Load more posts
   const handleLoadMore = () => {
-    const nextPage = page + 1;
-    setPage(nextPage);
-    loadPosts(nextPage, true);
+    if (!loadingMore && hasMore) {
+      const nextPage = page + 1;
+      setPage(nextPage);
+      loadPosts(nextPage, true);
+    }
   };
 
   // Handle file selection
@@ -1263,17 +1295,17 @@ function Feed({ onLogout }) {
             <div style={{ textAlign: 'center', marginTop: '20px' }}>
               <button
                 onClick={handleLoadMore}
-                disabled={loading}
+                disabled={loadingMore}
                 style={{
                   padding: '10px 30px',
-                  backgroundColor: loading ? '#ccc' : '#007bff',
+                  backgroundColor: loadingMore ? '#ccc' : '#007bff',
                   color: 'white',
                   border: 'none',
                   borderRadius: '4px',
-                  cursor: loading ? 'not-allowed' : 'pointer'
+                  cursor: loadingMore ? 'not-allowed' : 'pointer'
                 }}
               >
-                {loading ? 'Loading...' : 'Load More'}
+                {loadingMore ? 'Loading More...' : 'Load More Posts'}
               </button>
             </div>
           )}
