@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { API_URL } from './config';
+import { API_URL, AUTH_URL } from './config';
 
 function AdminPanel() {
   const [users, setUsers] = useState([]);
@@ -20,11 +20,8 @@ function AdminPanel() {
 
   const loadUsers = async () => {
     try {
-      const token = localStorage.getItem("token");
-      const response = await fetch(`${API_URL}/admin/users`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+      const response = await fetch(`${AUTH_URL}/admin/users`, {
+        credentials: 'include',
       });
 
       if (!response.ok) {
@@ -46,7 +43,6 @@ function AdminPanel() {
 
   const loadPosts = async () => {
     try {
-      const token = localStorage.getItem("token");
       let allPosts = [];
       let page = 1;
       let hasMore = true;
@@ -55,11 +51,7 @@ function AdminPanel() {
       while (hasMore) {
         const response = await fetch(
           `${API_URL}/admin/feed?page=${page}`,
-          {
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
+          { credentials: 'include' }
         );
 
         if (!response.ok) {
@@ -90,15 +82,9 @@ function AdminPanel() {
     if (!window.confirm(`Ban user ${username}?`)) return;
 
     try {
-      const token = localStorage.getItem("token");
       const response = await fetch(
-        `${API_URL}/admin/users/${userId}/ban`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
+        `${AUTH_URL}/admin/users/${userId}/ban`,
+        { method: "POST", credentials: 'include' }
       );
 
       if (!response.ok) {
@@ -116,15 +102,9 @@ function AdminPanel() {
     if (!window.confirm(`Unban user ${username}?`)) return;
 
     try {
-      const token = localStorage.getItem("token");
       const response = await fetch(
-        `${API_URL}/admin/users/${userId}/unban`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
+        `${AUTH_URL}/admin/users/${userId}/unban`,
+        { method: "POST", credentials: 'include' }
       );
 
       if (!response.ok) {
@@ -142,15 +122,9 @@ function AdminPanel() {
     if (!window.confirm("Delete this post?")) return;
 
     try {
-      const token = localStorage.getItem("token");
       const response = await fetch(
         `${API_URL}/admin/posts/${postId}`,
-        {
-          method: "DELETE",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
+        { method: "DELETE", credentials: 'include' }
       );
 
       if (!response.ok) {
@@ -273,7 +247,6 @@ function AdminPanel() {
                   <th style={{ padding: "12px", textAlign: "left" }}>
                     Username
                   </th>
-                  <th style={{ padding: "12px", textAlign: "left" }}>Posts</th>
                   <th style={{ padding: "12px", textAlign: "left" }}>Status</th>
                   <th style={{ padding: "12px", textAlign: "left" }}>Role</th>
                   <th style={{ padding: "12px", textAlign: "left" }}>Joined</th>
@@ -294,7 +267,6 @@ function AdminPanel() {
                       style={{ borderBottom: "1px solid #dee2e6" }}
                     >
                       <td style={{ padding: "12px" }}>{user.username}</td>
-                      <td style={{ padding: "12px" }}>{user.post_count}</td>
                       <td style={{ padding: "12px" }}>
                         <span
                           style={{
@@ -311,14 +283,16 @@ function AdminPanel() {
                         </span>
                       </td>
                       <td style={{ padding: "12px" }}>
-                        {user.is_admin ? (
+                        {user.role === "super" ? (
                           <span
                             style={{ color: "#007bff", fontWeight: "bold" }}
                           >
-                            Admin
+                            Super
                           </span>
+                        ) : user.role === "power" ? (
+                          <span style={{ fontWeight: "bold" }}>Power</span>
                         ) : (
-                          "User"
+                          "Free"
                         )}
                       </td>
                       <td
@@ -331,7 +305,7 @@ function AdminPanel() {
                         {new Date(user.created_at).toLocaleDateString()}
                       </td>
                       <td style={{ padding: "12px", textAlign: "center" }}>
-                        {!user.is_admin &&
+                        {user.role !== "super" &&
                           (user.is_banned ? (
                             <button
                               onClick={() =>
@@ -472,7 +446,7 @@ function AdminPanel() {
                         }}
                       >
                         Post ID: {post.id} | Type: {post.post_type} | Dislikes:{" "}
-                        {post.dislike_count} | User: {post.username}
+                        {post.dislike_count} | User ID: {post.user_id}
                       </div>
                       {post.post_type === "text" ? (
                         <p style={{ margin: "10px 0" }}>{post.content}</p>

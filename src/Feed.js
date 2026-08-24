@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { API_URL } from './config';
 
-function Feed({ onLogout }) {
+function Feed({ identity, onLogout }) {
   const navigate = useNavigate();
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -19,7 +19,6 @@ function Feed({ onLogout }) {
   const [posting, setPosting] = useState(false);
   const [postError, setPostError] = useState('');
   const fileInputRef = useRef(null);
-  const [isAdmin, setIsAdmin] = useState(false);
 
   // Reply states
   const [expandedPostId, setExpandedPostId] = useState(null);
@@ -33,28 +32,8 @@ function Feed({ onLogout }) {
   const [replyError, setReplyError] = useState('');
   const replyFileInputRef = useRef(null);
 
-  const username = localStorage.getItem('username');
-
-  // Check if user is admin
-  useEffect(() => {
-    const checkAdmin = async () => {
-      try {
-        const token = localStorage.getItem('token');
-        const response = await fetch(`${API_URL}/admin/users`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
-        // If this succeeds, user is an admin
-        if (response.ok) {
-          setIsAdmin(true);
-        }
-      } catch (err) {
-        // Not an admin or error, keep isAdmin as false
-      }
-    };
-    checkAdmin();
-  }, []);
+  const username = identity.username;
+  const isAdmin = identity.role === 'super';
 
   // Load posts
   const loadPosts = async (pageNum = 1, append = false) => {
@@ -69,11 +48,8 @@ function Feed({ onLogout }) {
     setError('');
 
     try {
-      const token = localStorage.getItem('token');
       const response = await fetch(`${API_URL}/feed?page=${pageNum}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        credentials: 'include',
       });
 
       if (!response.ok) {
@@ -121,11 +97,8 @@ function Feed({ onLogout }) {
 
     const interval = setInterval(async () => {
       try {
-        const token = localStorage.getItem('token');
         const response = await fetch(`${API_URL}/feed?page=1`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          credentials: 'include',
         });
 
         if (response.ok) {
@@ -166,11 +139,8 @@ function Feed({ onLogout }) {
   // Download file
   const handleDownload = async (postId, filename) => {
     try {
-      const token = localStorage.getItem('token');
       const response = await fetch(`${API_URL}/posts/${postId}/download`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        credentials: 'include',
       });
 
       if (!response.ok) {
@@ -214,15 +184,12 @@ function Feed({ onLogout }) {
     setPostError('');
 
     try {
-      const token = localStorage.getItem('token');
       const formData = new FormData();
       formData.append('content', textContent);
 
       const response = await fetch(`${API_URL}/posts/text`, {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        credentials: 'include',
         body: formData,
       });
 
@@ -258,7 +225,6 @@ function Feed({ onLogout }) {
     setPostError('');
 
     try {
-      const token = localStorage.getItem('token');
       const formData = new FormData();
       formData.append('file', selectedFile);
       if (caption) {
@@ -267,9 +233,7 @@ function Feed({ onLogout }) {
 
       const response = await fetch(`${API_URL}/posts/file`, {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        credentials: 'include',
         body: formData,
       });
 
@@ -296,12 +260,9 @@ function Feed({ onLogout }) {
     if (!window.confirm('Delete this post?')) return;
 
     try {
-      const token = localStorage.getItem('token');
       const response = await fetch(`${API_URL}/posts/${postId}`, {
         method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        credentials: 'include',
       });
 
       if (!response.ok) {
@@ -332,12 +293,9 @@ function Feed({ onLogout }) {
     );
 
     try {
-      const token = localStorage.getItem('token');
       const response = await fetch(`${API_URL}/posts/${postId}/dislike`, {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        credentials: 'include',
       });
 
       if (!response.ok) {
@@ -367,11 +325,8 @@ function Feed({ onLogout }) {
   const fetchReplies = async (postId) => {
     setLoadingReplies(prev => ({ ...prev, [postId]: true }));
     try {
-      const token = localStorage.getItem('token');
       const response = await fetch(`${API_URL}/posts/${postId}/replies`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        credentials: 'include',
       });
 
       if (!response.ok) {
@@ -415,15 +370,12 @@ function Feed({ onLogout }) {
     setReplyError('');
 
     try {
-      const token = localStorage.getItem('token');
       const formData = new FormData();
       formData.append('content', replyText);
 
       const response = await fetch(`${API_URL}/posts/${postId}/reply/text`, {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        credentials: 'include',
         body: formData,
       });
 
@@ -467,7 +419,6 @@ function Feed({ onLogout }) {
     setReplyError('');
 
     try {
-      const token = localStorage.getItem('token');
       const formData = new FormData();
       formData.append('file', replyFile);
       if (replyCaption) {
@@ -476,9 +427,7 @@ function Feed({ onLogout }) {
 
       const response = await fetch(`${API_URL}/posts/${postId}/reply/file`, {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        credentials: 'include',
         body: formData,
       });
 
@@ -527,12 +476,9 @@ function Feed({ onLogout }) {
     }));
 
     try {
-      const token = localStorage.getItem('token');
       const response = await fetch(`${API_URL}/posts/${replyId}/dislike`, {
         method: 'POST',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        credentials: 'include',
       });
 
       if (!response.ok) {
@@ -561,12 +507,9 @@ function Feed({ onLogout }) {
     if (!window.confirm('Delete this reply?')) return;
 
     try {
-      const token = localStorage.getItem('token');
       const response = await fetch(`${API_URL}/posts/${replyId}`, {
         method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        credentials: 'include',
       });
 
       if (!response.ok) {
@@ -635,19 +578,6 @@ function Feed({ onLogout }) {
               Admin Panel
             </button>
           )}
-          <button
-            onClick={() => navigate('/change-password')}
-            style={{
-              padding: '8px 15px',
-              backgroundColor: '#007bff',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer'
-            }}
-          >
-            Change Password
-          </button>
           <button
             onClick={onLogout}
             style={{

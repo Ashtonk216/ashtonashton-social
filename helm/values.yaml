@@ -1,0 +1,12 @@
+image:
+  repository: ashtonk216/ashtonashton-social-frontend
+  tag: "0.2.0"
+  pullPolicy: Always
+
+resources:
+  requests:
+    cpu: 25m
+    memory: 32Mi
+  limits:
+    cpu: 100m
+    memory: 64Mi
