@@ -35,15 +35,43 @@ function App() {
   // cookie silently expires mid-session and the next request bounces to
   // login. Refresh well before expiry, on an interval, for as long as the
   // tab is open.
+  //
+  // The interval alone isn't enough: browsers throttle or fully suspend
+  // setInterval in backgrounded tabs, so a user who switches away and comes
+  // back after >15 min finds the token already dead with no refresh having
+  // fired. visibilitychange fires reliably even on a suspended tab, so also
+  // refresh -- and AWAIT it -- before Feed's own 15-second auto-refresh
+  // interval (which stays running/re-fires the moment the tab is visible
+  // again) gets a chance to fire a request against the still-stale token.
   useEffect(() => {
     if (status !== 'authed') return;
-    const interval = setInterval(() => {
-      fetch(`${AUTH_URL}/auth/refresh`, { method: 'POST', credentials: 'include' }).catch(() => {
-        // Silent fail -- if the refresh token itself has expired, the next
-        // real request will 401 and Traefik will redirect to login as normal.
-      });
-    }, 10 * 60 * 1000); // every 10 min, ahead of the 15-min access token TTL
-    return () => clearInterval(interval);
+
+    const doRefresh = async () => {
+      try {
+        const response = await fetch(`${AUTH_URL}/auth/refresh`, { method: 'POST', credentials: 'include' });
+        if (!response.ok) {
+          // Refresh token itself is dead (e.g. >30 days away). Redirect to
+          // login explicitly rather than letting a background request
+          // surface a raw, uncaught 401 somewhere else in the UI.
+          window.location.href = `${AUTH_URL}/login?rd=${encodeURIComponent(window.location.href)}`;
+        }
+      } catch (err) {
+        // Network error -- leave the session as-is, the next real request
+        // will surface the same failure through normal error handling.
+      }
+    };
+
+    const interval = setInterval(doRefresh, 10 * 60 * 1000); // every 10 min, ahead of the 15-min access token TTL
+
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') doRefresh();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+
+    return () => {
+      clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
   }, [status]);
 
   const handleLogout = async () => {

@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { API_URL, AUTH_URL } from './config';
+import { authFetch } from './authFetch';
 
 function AdminPanel() {
   const [users, setUsers] = useState([]);
@@ -22,7 +23,7 @@ function AdminPanel() {
 
   const loadPasswordResets = async () => {
     try {
-      const response = await fetch(`${AUTH_URL}/admin/password-resets`, {
+      const response = await authFetch(`${AUTH_URL}/admin/password-resets`, {
         credentials: 'include',
       });
       if (!response.ok) return;
@@ -36,7 +37,7 @@ function AdminPanel() {
     if (!window.confirm(`Approve the new password for ${username}?`)) return;
 
     try {
-      const response = await fetch(
+      const response = await authFetch(
         `${AUTH_URL}/admin/password-resets/${userId}/approve`,
         { method: "POST", credentials: 'include' }
       );
@@ -51,7 +52,7 @@ function AdminPanel() {
     if (!window.confirm(`Deny the password reset request for ${username}?`)) return;
 
     try {
-      const response = await fetch(
+      const response = await authFetch(
         `${AUTH_URL}/admin/password-resets/${userId}/deny`,
         { method: "POST", credentials: 'include' }
       );
@@ -64,7 +65,7 @@ function AdminPanel() {
 
   const loadUsers = async () => {
     try {
-      const response = await fetch(`${AUTH_URL}/admin/users`, {
+      const response = await authFetch(`${AUTH_URL}/admin/users`, {
         credentials: 'include',
       });
 
@@ -93,7 +94,7 @@ function AdminPanel() {
 
       // Load all pages of posts
       while (hasMore) {
-        const response = await fetch(
+        const response = await authFetch(
           `${API_URL}/admin/feed?page=${page}`,
           { credentials: 'include' }
         );
@@ -126,7 +127,7 @@ function AdminPanel() {
     if (!window.confirm(`Ban user ${username}?`)) return;
 
     try {
-      const response = await fetch(
+      const response = await authFetch(
         `${AUTH_URL}/admin/users/${userId}/ban`,
         { method: "POST", credentials: 'include' }
       );
@@ -146,7 +147,7 @@ function AdminPanel() {
     if (!window.confirm(`Unban user ${username}?`)) return;
 
     try {
-      const response = await fetch(
+      const response = await authFetch(
         `${AUTH_URL}/admin/users/${userId}/unban`,
         { method: "POST", credentials: 'include' }
       );
@@ -166,7 +167,7 @@ function AdminPanel() {
     if (!window.confirm("Delete this post?")) return;
 
     try {
-      const response = await fetch(
+      const response = await authFetch(
         `${API_URL}/admin/posts/${postId}`,
         { method: "DELETE", credentials: 'include' }
       );

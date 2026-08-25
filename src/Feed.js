@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { API_URL } from './config';
+import { authFetch } from './authFetch';
 
 function Feed({ identity, onLogout }) {
   const navigate = useNavigate();
@@ -48,7 +49,7 @@ function Feed({ identity, onLogout }) {
     setError('');
 
     try {
-      const response = await fetch(`${API_URL}/feed?page=${pageNum}`, {
+      const response = await authFetch(`${API_URL}/feed?page=${pageNum}`, {
         credentials: 'include',
       });
 
@@ -97,7 +98,7 @@ function Feed({ identity, onLogout }) {
 
     const interval = setInterval(async () => {
       try {
-        const response = await fetch(`${API_URL}/feed?page=1`, {
+        const response = await authFetch(`${API_URL}/feed?page=1`, {
           credentials: 'include',
         });
 
@@ -139,7 +140,7 @@ function Feed({ identity, onLogout }) {
   // Download file
   const handleDownload = async (postId, filename) => {
     try {
-      const response = await fetch(`${API_URL}/posts/${postId}/download`, {
+      const response = await authFetch(`${API_URL}/posts/${postId}/download`, {
         credentials: 'include',
       });
 
@@ -187,7 +188,7 @@ function Feed({ identity, onLogout }) {
       const formData = new FormData();
       formData.append('content', textContent);
 
-      const response = await fetch(`${API_URL}/posts/text`, {
+      const response = await authFetch(`${API_URL}/posts/text`, {
         method: 'POST',
         credentials: 'include',
         body: formData,
@@ -231,7 +232,7 @@ function Feed({ identity, onLogout }) {
         formData.append('caption', caption);
       }
 
-      const response = await fetch(`${API_URL}/posts/file`, {
+      const response = await authFetch(`${API_URL}/posts/file`, {
         method: 'POST',
         credentials: 'include',
         body: formData,
@@ -260,7 +261,7 @@ function Feed({ identity, onLogout }) {
     if (!window.confirm('Delete this post?')) return;
 
     try {
-      const response = await fetch(`${API_URL}/posts/${postId}`, {
+      const response = await authFetch(`${API_URL}/posts/${postId}`, {
         method: 'DELETE',
         credentials: 'include',
       });
@@ -293,7 +294,7 @@ function Feed({ identity, onLogout }) {
     );
 
     try {
-      const response = await fetch(`${API_URL}/posts/${postId}/dislike`, {
+      const response = await authFetch(`${API_URL}/posts/${postId}/dislike`, {
         method: 'POST',
         credentials: 'include',
       });
@@ -325,7 +326,7 @@ function Feed({ identity, onLogout }) {
   const fetchReplies = async (postId) => {
     setLoadingReplies(prev => ({ ...prev, [postId]: true }));
     try {
-      const response = await fetch(`${API_URL}/posts/${postId}/replies`, {
+      const response = await authFetch(`${API_URL}/posts/${postId}/replies`, {
         credentials: 'include',
       });
 
@@ -373,7 +374,7 @@ function Feed({ identity, onLogout }) {
       const formData = new FormData();
       formData.append('content', replyText);
 
-      const response = await fetch(`${API_URL}/posts/${postId}/reply/text`, {
+      const response = await authFetch(`${API_URL}/posts/${postId}/reply/text`, {
         method: 'POST',
         credentials: 'include',
         body: formData,
@@ -425,7 +426,7 @@ function Feed({ identity, onLogout }) {
         formData.append('caption', replyCaption);
       }
 
-      const response = await fetch(`${API_URL}/posts/${postId}/reply/file`, {
+      const response = await authFetch(`${API_URL}/posts/${postId}/reply/file`, {
         method: 'POST',
         credentials: 'include',
         body: formData,
@@ -476,7 +477,7 @@ function Feed({ identity, onLogout }) {
     }));
 
     try {
-      const response = await fetch(`${API_URL}/posts/${replyId}/dislike`, {
+      const response = await authFetch(`${API_URL}/posts/${replyId}/dislike`, {
         method: 'POST',
         credentials: 'include',
       });
@@ -507,7 +508,7 @@ function Feed({ identity, onLogout }) {
     if (!window.confirm('Delete this reply?')) return;
 
     try {
-      const response = await fetch(`${API_URL}/posts/${replyId}`, {
+      const response = await authFetch(`${API_URL}/posts/${replyId}`, {
         method: 'DELETE',
         credentials: 'include',
       });
