@@ -541,11 +541,10 @@ function Feed({ identity, onLogout }) {
     return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
   };
 
-  // Format date
+  // Format date -- the backend sends a timezone-aware ISO 8601 string
+  // (Postgres DateTime(timezone=True)), so no manual UTC coercion needed.
   const formatDate = (dateString) => {
-    // Parse the UTC timestamp from SQLite and convert to local time
-    const date = new Date(dateString + 'Z'); // Adding 'Z' ensures it's treated as UTC
-    return date.toLocaleString();
+    return new Date(dateString).toLocaleString();
   };
 
   return (

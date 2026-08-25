@@ -5,9 +5,10 @@ import { API_URL, AUTH_URL } from './config';
 function AdminPanel() {
   const [users, setUsers] = useState([]);
   const [posts, setPosts] = useState([]);
+  const [passwordResets, setPasswordResets] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const [activeTab, setActiveTab] = useState("users"); // 'users' or 'posts'
+  const [activeTab, setActiveTab] = useState("users"); // 'users', 'posts', or 'resets'
   const [postPage, setPostPage] = useState(1);
   const [userPage, setUserPage] = useState(1);
   const ITEMS_PER_PAGE = 20;
@@ -16,7 +17,50 @@ function AdminPanel() {
   useEffect(() => {
     loadUsers();
     loadPosts();
+    loadPasswordResets();
   }, []);
+
+  const loadPasswordResets = async () => {
+    try {
+      const response = await fetch(`${AUTH_URL}/admin/password-resets`, {
+        credentials: 'include',
+      });
+      if (!response.ok) return;
+      setPasswordResets(await response.json());
+    } catch (err) {
+      console.error("Failed to load password resets:", err);
+    }
+  };
+
+  const handleApproveReset = async (userId, username) => {
+    if (!window.confirm(`Approve the new password for ${username}?`)) return;
+
+    try {
+      const response = await fetch(
+        `${AUTH_URL}/admin/password-resets/${userId}/approve`,
+        { method: "POST", credentials: 'include' }
+      );
+      if (!response.ok) throw new Error("Failed to approve reset");
+      loadPasswordResets();
+    } catch (err) {
+      alert("Error: " + err.message);
+    }
+  };
+
+  const handleDenyReset = async (userId, username) => {
+    if (!window.confirm(`Deny the password reset request for ${username}?`)) return;
+
+    try {
+      const response = await fetch(
+        `${AUTH_URL}/admin/password-resets/${userId}/deny`,
+        { method: "POST", credentials: 'include' }
+      );
+      if (!response.ok) throw new Error("Failed to deny reset");
+      loadPasswordResets();
+    } catch (err) {
+      alert("Error: " + err.message);
+    }
+  };
 
   const loadUsers = async () => {
     try {
@@ -222,6 +266,20 @@ function AdminPanel() {
           }}
         >
           Posts ({posts.length})
+        </button>
+        <button
+          onClick={() => setActiveTab("resets")}
+          style={{
+            padding: "10px 20px",
+            backgroundColor: activeTab === "resets" ? "#007bff" : "transparent",
+            color: activeTab === "resets" ? "white" : "#007bff",
+            border: "none",
+            borderBottom: activeTab === "resets" ? "3px solid #007bff" : "none",
+            cursor: "pointer",
+            fontSize: "16px",
+          }}
+        >
+          Password Resets ({passwordResets.length})
         </button>
       </div>
 
@@ -547,6 +605,78 @@ function AdminPanel() {
               >
                 Next
               </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Password Resets Tab */}
+      {activeTab === "resets" && (
+        <div>
+          <h2>Pending Password Resets</h2>
+          {passwordResets.length === 0 ? (
+            <p style={{ color: "#6c757d", marginTop: "20px" }}>No pending requests.</p>
+          ) : (
+            <div style={{ overflowX: "auto" }}>
+              <table
+                style={{
+                  width: "100%",
+                  borderCollapse: "collapse",
+                  marginTop: "20px",
+                }}
+              >
+                <thead>
+                  <tr
+                    style={{
+                      backgroundColor: "#f8f9fa",
+                      borderBottom: "2px solid #dee2e6",
+                    }}
+                  >
+                    <th style={{ padding: "12px", textAlign: "left" }}>Username</th>
+                    <th style={{ padding: "12px", textAlign: "left" }}>Requested</th>
+                    <th style={{ padding: "12px", textAlign: "center" }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {passwordResets.map((r) => (
+                    <tr key={r.user_id} style={{ borderBottom: "1px solid #dee2e6" }}>
+                      <td style={{ padding: "12px" }}>{r.username}</td>
+                      <td style={{ padding: "12px", fontSize: "14px", color: "#6c757d" }}>
+                        {new Date(r.created_at).toLocaleString()}
+                      </td>
+                      <td style={{ padding: "12px", textAlign: "center" }}>
+                        <button
+                          onClick={() => handleApproveReset(r.user_id, r.username)}
+                          style={{
+                            padding: "6px 12px",
+                            marginRight: "8px",
+                            backgroundColor: "#28a745",
+                            color: "white",
+                            border: "none",
+                            borderRadius: "4px",
+                            cursor: "pointer",
+                          }}
+                        >
+                          Approve
+                        </button>
+                        <button
+                          onClick={() => handleDenyReset(r.user_id, r.username)}
+                          style={{
+                            padding: "6px 12px",
+                            backgroundColor: "#dc3545",
+                            color: "white",
+                            border: "none",
+                            borderRadius: "4px",
+                            cursor: "pointer",
+                          }}
+                        >
+                          Deny
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           )}
         </div>

@@ -31,6 +31,21 @@ function App() {
     checkAuth();
   }, []);
 
+  // Access tokens are short-lived (15 min); without this, the ForwardAuth
+  // cookie silently expires mid-session and the next request bounces to
+  // login. Refresh well before expiry, on an interval, for as long as the
+  // tab is open.
+  useEffect(() => {
+    if (status !== 'authed') return;
+    const interval = setInterval(() => {
+      fetch(`${AUTH_URL}/auth/refresh`, { method: 'POST', credentials: 'include' }).catch(() => {
+        // Silent fail -- if the refresh token itself has expired, the next
+        // real request will 401 and Traefik will redirect to login as normal.
+      });
+    }, 10 * 60 * 1000); // every 10 min, ahead of the 15-min access token TTL
+    return () => clearInterval(interval);
+  }, [status]);
+
   const handleLogout = async () => {
     await fetch(`${AUTH_URL}/auth/logout`, { method: 'POST', credentials: 'include' });
     window.location.href = `${AUTH_URL}/login?rd=${encodeURIComponent(window.location.href)}`;
