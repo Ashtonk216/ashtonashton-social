@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { API_URL } from './config';
 import { authFetch } from './authFetch';
+import AppSwitcher from './AppSwitcher';
 
 function Feed({ identity, onLogout }) {
   const navigate = useNavigate();
@@ -89,6 +90,7 @@ function Feed({ identity, onLogout }) {
   // Initial load
   useEffect(() => {
     loadPosts(1, false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Auto-refresh feed every 15 seconds (ONLY when on page 1)
@@ -199,10 +201,9 @@ function Feed({ identity, onLogout }) {
         throw new Error(errorData.detail || 'Failed to create post');
       }
 
-      // Clear form and reload feed
+      const newPost = await response.json();
+      setPosts((prevPosts) => [newPost, ...prevPosts]);
       setTextContent('');
-      setPage(1);
-      loadPosts(1);
     } catch (err) {
       setPostError(err.message);
     } finally {
@@ -243,12 +244,11 @@ function Feed({ identity, onLogout }) {
         throw new Error(errorData.detail || 'Failed to create post');
       }
 
-      // Clear form and reload feed
+      const newPost = await response.json();
+      setPosts((prevPosts) => [newPost, ...prevPosts]);
       setSelectedFile(null);
       setCaption('');
       fileInputRef.current.value = '';
-      setPage(1);
-      loadPosts(1);
     } catch (err) {
       setPostError(err.message);
     } finally {
@@ -270,9 +270,7 @@ function Feed({ identity, onLogout }) {
         throw new Error('Failed to delete post');
       }
 
-      // Reload feed
-      setPage(1);
-      loadPosts(1);
+      setPosts((prevPosts) => prevPosts.filter((post) => post.id !== postId));
     } catch (err) {
       alert('Delete failed: ' + err.message);
     }
@@ -302,10 +300,9 @@ function Feed({ identity, onLogout }) {
       if (!response.ok) {
         throw new Error('Failed to toggle dislike');
       }
-
-
-      loadPosts(page, false, true);
-
+      // Optimistic update above already reflects the correct end state --
+      // the server's response here is just {message, action, is_disliked},
+      // no need to refetch anything.
     } catch (err) {
       // Step 2: Revert the optimistic update on failure
       setPosts((prevPosts) =>
@@ -591,6 +588,7 @@ function Feed({ identity, onLogout }) {
           >
             Logout
           </button>
+          <AppSwitcher currentAppId="social" />
         </div>
       </div>
 
